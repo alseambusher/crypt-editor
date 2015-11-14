@@ -37,7 +37,6 @@ fi
 
 # set editor
 # TODO bug: opening .nc file in another directory.
-# TODO feature: for gvim run with -f option 
 if [ ! `type -P $editor` ] || [ -f $editor ]
 then
 	echo "Setting editor as vi.."
@@ -63,11 +62,20 @@ then
 	fi
 fi
 
+if [ `echo $editor| cut -d " " -f1` = "gvim" ]
+then
+	# TODO feature: retain other args in gvim
+	editor="gvim -f"
+fi
+
 # open decrypted file
 $editor $file
 
 # encrypt it again
-cat $file|mcrypt -q -k $pass >$file.nc
+if [ -f $file ]
+then
+	cat $file | mcrypt -q -k $pass >$file.nc
+fi
 
 # remove temporary files
 rm $file $file~ *$file.swp 2>/dev/null
