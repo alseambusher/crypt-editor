@@ -8,9 +8,15 @@ crypt-editor [filename]
 crypt-editor [editor] [filename]
 crypt-editor [-k key] [filename]
 crypt-editor [-k key] [editor] [filename]
+
+To create new file with mcrypt instead of gpg use -m option
+Example:
+crypt-editor -m [filename]
 EOF
 }
-while getopts "hk:" OPTION
+
+ismcrypt=0 # 
+while getopts "hkm:" OPTION
 do
 	case $OPTION in
 	h)
@@ -22,6 +28,10 @@ do
 		editor=$3
 		file=$4
 		;;
+	m)
+		echo "using mcrypt instead of gpg"
+		ismcrypt=1
+		;;
 	esac
 done
 
@@ -31,12 +41,17 @@ then
 	echo -n "Passphrase: "
 	stty -echo
 	read pass
-	editor=$1
-	file=$2
+	if [ $ismcrypt -eq 0 ] #if -m option is not there
+	then
+		editor=$1
+		file=$2
+	else
+		editor=$2
+		file=$3
+	fi
 fi
 
 # set editor
-# TODO bug: opening .nc file in another directory.
 if [ ! `type -P $editor` ] || [ -f $editor ]
 then
 	echo "Setting editor as vi.."
@@ -49,10 +64,27 @@ then
 	file=`expr "$file" : "\(.*\)\.nc"`
 fi
 
-# decrypt it
-if [ -f $file.nc ]
+
+# check for .gpg extension
+if [ `echo $file| grep ".*\.gpg"` ]
+then
+	file=`expr "$file" : "\(.*\)\.gpg"`
+fi
+
+if [ -f $file.nc ] # decrypt nc
 then
 	mcrypt -q -k $pass -d $file.nc
+
+	# if password is invalid
+	if [ $? -ne 0 ]
+	then
+		stty sane
+		exit 1
+	fi
+
+elif [ -f $file.gpg ] # decrypt gpg
+then
+	echo $pass | gpg --passphrase-fd 0 --yes --no-mdc-warning $file.gpg
 
 	# if password is invalid
 	if [ $? -ne 0 ]
@@ -74,7 +106,12 @@ $editor $file
 # encrypt it again
 if [ -f $file ]
 then
-	cat $file | mcrypt -q -k $pass >$file.nc
+	if [ $ismcrypt -eq 1 -o -f $file.nc ]
+	then
+		cat $file | mcrypt -q -k $pass >$file.nc
+	else	
+		echo $pass | gpg --passphrase-fd 0 --yes -o $file.gpg --symmetric $file
+	fi
 fi
 
 # remove temporary files
