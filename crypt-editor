@@ -94,12 +94,15 @@ then
 	fi
 fi
 
-if [ `echo $editor| cut -d " " -f1` = "gvim" ]
-then
-	# TODO feature: retain other args in gvim
-	editor="gvim -f"
-fi
-
+editor_command=`echo $editor| cut -d " " -f1`
+case $editor_command in
+	gvim) editor="gvim -f"
+		;;
+	subl) editor="subl -w"
+		;;
+	sublime-text) editor="sublime-text -w"
+		;;
+esac
 # open decrypted file
 $editor $file
 
